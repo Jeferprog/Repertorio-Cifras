@@ -909,8 +909,11 @@ function startScroll() {
   const body = document.getElementById('viewerBody');
   const btn  = document.getElementById('scrollToggle');
   btn.textContent = '⏸ Pausar';
+  let accum = 0;
   function step() {
-    body.scrollTop += SPEEDS[speedIdx];
+    accum += SPEEDS[speedIdx];
+    const px = Math.floor(accum);
+    if (px >= 1) { body.scrollTop += px; accum -= px; }
     const atEnd = body.scrollTop >= body.scrollHeight - body.clientHeight - 1;
     if (!atEnd) { rafId = requestAnimationFrame(step); }
     else         { rafId = null; btn.textContent = '▶ Rolar'; }
