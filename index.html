@@ -321,7 +321,93 @@
       display: none;
     }
 
-    /* ── Accent divider ───────────────────────────────────────────── */
+    /* ── Viewer overlay ───────────────────────────────────────────── */
+  .viewer {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+  }
+
+  .viewer.open { transform: translateY(0); }
+
+  .viewer-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1rem;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+    box-shadow: var(--shadow);
+  }
+
+  .viewer-back {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .viewer-back:active { background: var(--accent-lo); }
+
+  .viewer-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .viewer-body {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .viewer-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.875rem;
+    color: var(--text-dim);
+    font-size: 0.875rem;
+    background: var(--bg);
+    z-index: 1;
+  }
+
+  .viewer-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: var(--bg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .viewer { transition: none; }
+  }
+
+  /* ── Accent divider ───────────────────────────────────────────── */
     .accent-line {
       height: 2px;
       background: linear-gradient(90deg, var(--accent) 0%, transparent 100%);
@@ -358,6 +444,17 @@
   <div class="loading-state"><div class="spinner"></div>Carregando…</div>
 </main>
 
+<div id="viewer" class="viewer" aria-hidden="true">
+  <div class="viewer-header">
+    <button class="viewer-back" id="viewerBack">‹ Voltar</button>
+    <span class="viewer-title" id="viewerTitle"></span>
+  </div>
+  <div class="viewer-body">
+    <div class="viewer-loading" id="viewerLoading"><div class="spinner"></div>Carregando cifra…</div>
+    <iframe id="viewerFrame" class="viewer-frame" src="" frameborder="0" title="Cifra"></iframe>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -376,7 +473,7 @@ const CAT_META = {
   'Sertanejo':                    { icon: '🎸', desc: 'Compilado geral' },
 };
 
-const RECENT_KEY = 'cifras_v2_recent';
+const RECENT_KEY = 'cifras_v3_recent';
 const THEME_KEY  = 'cifras_theme';
 const MAX_RECENT = 6;
 
@@ -538,17 +635,15 @@ async function renderRoot() {
         <div class="label">Tocadas recentemente</div>
         <div class="item-list">
           ${recent.map(s => `
-            <a class="list-item song-item"
-               href="${esc(s.url)}"
-               target="_blank" rel="noopener noreferrer"
-               data-song='${esc(JSON.stringify(s))}'>
+            <div class="list-item song-item"
+                 data-open-song='${esc(JSON.stringify(s))}'>
               <span class="item-icon">♪</span>
               <div class="item-body">
                 <div class="item-name">${esc(s.title)}</div>
                 <div class="item-meta">${esc(s.artist)} · ${esc(s.category)}</div>
               </div>
-              <span class="item-chevron">↗</span>
-            </a>`).join('')}
+              <span class="item-chevron">›</span>
+            </div>`).join('')}
         </div>
       </div>
       <hr class="accent-line">`;
@@ -619,20 +714,18 @@ function renderSongs(files) {
 
   const songRows = files.map(f => {
     const title = songTitle(f.name);
-    const url   = `${GH}/${encPath([...stack, f.name])}`;
+    const url   = `${RAW}/${encPath([...stack, f.name])}`;
     const entry = { title, artist, category, url };
     return { title, entry, html: `
-      <a class="list-item song-item"
-         href="${esc(url)}"
-         target="_blank" rel="noopener noreferrer"
-         data-song='${esc(JSON.stringify(entry))}'
-         data-q="${esc(title.toLowerCase())}">
+      <div class="list-item song-item"
+           data-open-song='${esc(JSON.stringify(entry))}'
+           data-q="${esc(title.toLowerCase())}">
         <span class="item-icon">♪</span>
         <div class="item-body">
           <div class="item-name">${esc(title)}</div>
         </div>
-        <span class="item-chevron">↗</span>
-      </a>` };
+        <span class="item-chevron">›</span>
+      </div>` };
   });
 
   app.innerHTML = `
@@ -693,14 +786,44 @@ function goBack() {
 
 document.getElementById('backBtn').addEventListener('click', goBack);
 
+/* ── Song viewer ────────────────────────────────────────────────────────── */
+function openViewer(entry) {
+  addRecent(entry);
+  const overlay = document.getElementById('viewer');
+  const frame   = document.getElementById('viewerFrame');
+  const loading = document.getElementById('viewerLoading');
+
+  document.getElementById('viewerTitle').textContent = entry.title;
+  loading.style.display = '';
+  frame.src = '';
+
+  overlay.setAttribute('aria-hidden', 'false');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  frame.onload = () => { loading.style.display = 'none'; };
+  frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(entry.url)}&embedded=true`;
+}
+
+function closeViewer() {
+  const overlay = document.getElementById('viewer');
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  setTimeout(() => { document.getElementById('viewerFrame').src = ''; }, 320);
+}
+
+document.getElementById('viewerBack').addEventListener('click', closeViewer);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+
 /* ── Event delegation ───────────────────────────────────────────────────── */
 document.addEventListener('click', e => {
   const navEl  = e.target.closest('[data-nav]');
-  const songEl = e.target.closest('[data-song]');
+  const songEl = e.target.closest('[data-open-song]');
 
   if (navEl)  { navigate(navEl.dataset.nav); return; }
   if (songEl) {
-    try { addRecent(JSON.parse(songEl.dataset.song)); } catch {}
+    try { openViewer(JSON.parse(songEl.dataset.openSong)); } catch {}
   }
 });
 
