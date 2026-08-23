@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Repertório de Cifras</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=Inter:wght@400;500;600&display=swap">
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────────── */
+    :root {
+      --bg:        #FAF7F2;
+      --surface:   #F2EDE4;
+      --surface2:  #E8E1D6;
+      --border:    #D4C9BA;
+      --accent:    #C8843A;
+      --accent-lo: rgba(200,132,58,.12);
+      --text:      #1E1410;
+      --text-mid:  #5C4E43;
+      --text-dim:  #9C8878;
+      --radius:    12px;
+      --shadow:    0 1px 4px rgba(30,20,10,.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg:        #141008;
+        --surface:   #1C160E;
+        --surface2:  #261E14;
+        --border:    #3A2E22;
+        --accent:    #D4924A;
+        --accent-lo: rgba(212,146,74,.14);
+        --text:      #F0E8DC;
+        --text-mid:  #C0AC98;
+        --text-dim:  #7A6858;
+        --shadow:    0 1px 4px rgba(0,0,0,.3);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg:        #141008;
+      --surface:   #1C160E;
+      --surface2:  #261E14;
+      --border:    #3A2E22;
+      --accent:    #D4924A;
+      --accent-lo: rgba(212,146,74,.14);
+      --text:      #F0E8DC;
+      --text-mid:  #C0AC98;
+      --text-dim:  #7A6858;
+      --shadow:    0 1px 4px rgba(0,0,0,.3);
+    }
+
+    /* ── Reset ───────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100dvh;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 0 1rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: var(--shadow);
+    }
+
+    .back-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--accent);
+      font-size: 1.2rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.1s, border-color 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .back-btn.show { display: flex; }
+    .back-btn:active { background: var(--accent-lo); border-color: var(--accent); }
+
+    .header-info { flex: 1; min-width: 0; }
+
+    .header-title {
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-sub {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+
+    .theme-btn {
+      width: 36px;
+      height: 36px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-dim);
+      font-size: 1rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .theme-btn:active { background: var(--accent-lo); }
+
+    /* ── Main ─────────────────────────────────────────────────────── */
+    .main {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 3rem;
+    }
+
+    /* ── Label ────────────────────────────────────────────────────── */
+    .label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.6rem;
+    }
+
+    /* ── Category grid ────────────────────────────────────────────── */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.625rem;
+    }
+
+    .cat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .cat-card:hover  { border-color: var(--accent); }
+    .cat-card:active { background: var(--accent-lo); border-color: var(--accent); }
+
+    .cat-icon {
+      font-size: 1.875rem;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .cat-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    /* ── Lists ────────────────────────────────────────────────────── */
+    .item-list { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    .list-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.875rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.15s, background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .list-item:hover  { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+    .list-item:active { background: var(--accent-lo); border-color: var(--accent); }
+
+    .item-icon { font-size: 1.25rem; flex-shrink: 0; width: 1.75rem; text-align: center; }
+    .item-body { flex: 1; min-width: 0; }
+    .item-name { font-size: 0.88rem; font-weight: 500; color: var(--text); }
+    .item-meta { font-size: 0.73rem; color: var(--text-dim); margin-top: 0.125rem; }
+    .item-chevron { color: var(--text-dim); flex-shrink: 0; font-size: 1rem; line-height: 1; }
+
+    /* song items: slightly looser */
+    .song-item .item-name { font-weight: 400; }
+    .song-item .item-icon { color: var(--accent); font-size: 1rem; }
+
+    /* ── Search ───────────────────────────────────────────────────── */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 0.875rem;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      pointer-events: none;
+      width: 15px;
+      height: 15px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+      -webkit-appearance: none;
+    }
+
+    .search-input:focus   { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--text-dim); }
+
+    /* Clear search button inside input */
+    .search-clear {
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0.25rem;
+      display: none;
+      line-height: 1;
+    }
+    .search-clear.show { display: block; }
+
+    /* ── Sections spacing ─────────────────────────────────────────── */
+    .section { margin-bottom: 1.5rem; }
+
+    /* ── States ───────────────────────────────────────────────────── */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.875rem;
+      padding: 4rem 1rem;
+      color: var(--text-dim);
+      font-size: 0.875rem;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; border-top-color: var(--accent); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-dim);
+      font-size: 0.875rem;
+    }
+
+    .empty-icon { font-size: 2.25rem; margin-bottom: 0.75rem; }
+    .empty-title { font-weight: 500; color: var(--text-mid); margin-bottom: 0.25rem; }
+
+    /* ── No-results row ───────────────────────────────────────────── */
+    .no-results {
+      text-align: center;
+      padding: 1.5rem 1rem;
+      color: var(--text-dim);
+      font-size: 0.875rem;
+      display: none;
+    }
+
+    /* ── Accent divider ───────────────────────────────────────────── */
+    .accent-line {
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent) 0%, transparent 100%);
+      border: none;
+      margin-bottom: 1.25rem;
+      border-radius: 1px;
+      opacity: 0.45;
+    }
+
+    /* ── Rate limit notice ────────────────────────────────────────── */
+    .notice {
+      background: var(--accent-lo);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      color: var(--text-mid);
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <button class="back-btn" id="backBtn" aria-label="Voltar">‹</button>
+  <div class="header-info">
+    <div class="header-title" id="headerTitle">🎸 Repertório de Cifras</div>
+    <div class="header-sub"  id="headerSub"></div>
+  </div>
+  <button class="theme-btn" id="themeBtn" aria-label="Alternar tema" title="Alternar tema">☀️</button>
+</header>
+
+<main class="main" id="app">
+  <div class="loading-state"><div class="spinner"></div>Carregando…</div>
+</main>
+
+<script>
+'use strict';
+
+/* ── Constants ──────────────────────────────────────────────────────────── */
+const REPO   = 'jeferprog/repertorio-cifras';
+const BRANCH = 'main';
+const API    = `https://api.github.com/repos/${REPO}/contents`;
+const RAW    = `https://raw.githubusercontent.com/${REPO}/${BRANCH}`;
+const GH     = `https://github.com/${REPO}/blob/${BRANCH}`;
+
+const CAT_META = {
+  'Sertanejo Modão':              { icon: '🤠', desc: 'Duplas tradicionais' },
+  'Sertanejo raiz':               { icon: '🌵', desc: 'Caipira e viola' },
+  'Sertanejo Universitário':      { icon: '🎵', desc: 'Sertanejo pop' },
+  'Sertanejo Universitário 2026': { icon: '✨', desc: 'Lançamentos 2026' },
+  'Sertanejo':                    { icon: '🎸', desc: 'Compilado geral' },
+};
+
+const RECENT_KEY = 'cifras_v2_recent';
+const THEME_KEY  = 'cifras_theme';
+const MAX_RECENT = 6;
+
+/* ── Theme ──────────────────────────────────────────────────────────────── */
+(function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  updateThemeBtn();
+})();
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem(THEME_KEY, next);
+  updateThemeBtn();
+}
+
+function updateThemeBtn() {
+  const btn = document.getElementById('themeBtn');
+  if (!btn) return;
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (!document.documentElement.getAttribute('data-theme')
+        && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  btn.textContent = isDark ? '☀️' : '🌙';
+  btn.setAttribute('aria-label', isDark ? 'Modo claro' : 'Modo escuro');
+}
+
+document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+
+/* ── Recently played ────────────────────────────────────────────────────── */
+function getRecent() {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function addRecent(entry) {
+  let list = getRecent().filter(s => s.url !== entry.url);
+  list.unshift(entry);
+  if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+}
+
+/* ── State ──────────────────────────────────────────────────────────────── */
+let stack    = [];   // breadcrumb: array of folder name strings
+let memCache = {};   // in-memory cache: key → array of items
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+function esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function encPath(parts) {
+  return parts.map(p => encodeURIComponent(p)).join('/');
+}
+
+function songTitle(filename) {
+  return filename
+    .replace(/\.pdf$/i, '')
+    .replace(/[_]+/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .trim();
+}
+
+function artistDisplay(name) {
+  return name.replace(/\s*\(\d+\)\s*$/, '').trim();
+}
+
+function songCount(name) {
+  const m = name.match(/\((\d+)\)$/);
+  return m ? `${m[1]} música${+m[1] !== 1 ? 's' : ''}` : '';
+}
+
+/* ── GitHub API ─────────────────────────────────────────────────────────── */
+async function fetchDir(parts = []) {
+  const cacheKey = parts.join('\0');
+  if (memCache[cacheKey]) return memCache[cacheKey];
+
+  const url = parts.length
+    ? `${API}/${encPath(parts)}`
+    : API;
+
+  const res = await fetch(url, {
+    headers: { Accept: 'application/vnd.github.v3+json' }
+  });
+
+  if (!res.ok) {
+    if (res.headers.get('x-ratelimit-remaining') === '0') throw Object.assign(new Error, { code: 'rate_limit' });
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  memCache[cacheKey] = data;
+  return data;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+function updateHeader() {
+  const backBtn = document.getElementById('backBtn');
+  const title   = document.getElementById('headerTitle');
+  const sub     = document.getElementById('headerSub');
+
+  if (stack.length === 0) {
+    backBtn.classList.remove('show');
+    title.textContent = '🎸 Repertório de Cifras';
+    sub.textContent   = '';
+  } else if (stack.length === 1) {
+    backBtn.classList.add('show');
+    const m = CAT_META[stack[0]] || {};
+    title.textContent = `${m.icon || '📁'} ${stack[0]}`;
+    sub.textContent   = m.desc || '';
+  } else {
+    backBtn.classList.add('show');
+    title.textContent = artistDisplay(stack[stack.length - 1]);
+    sub.textContent   = stack[0];
+  }
+}
+
+/* ── Render helpers ─────────────────────────────────────────────────────── */
+const app = document.getElementById('app');
+
+function setLoading() {
+  app.innerHTML = '<div class="loading-state"><div class="spinner"></div>Carregando…</div>';
+}
+
+function setError(err) {
+  const msg = err && err.code === 'rate_limit'
+    ? 'Limite de requisições do GitHub atingido. Aguarde alguns minutos e tente novamente.'
+    : 'Erro ao carregar. Verifique sua conexão e tente novamente.';
+  app.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-title">${msg}</div>
+      <br><button onclick="renderRoot()" style="
+        background:var(--accent);color:#fff;border:none;border-radius:8px;
+        padding:.625rem 1.25rem;font-size:.875rem;font-family:inherit;cursor:pointer;">
+        Tentar novamente
+      </button>
+    </div>`;
+}
+
+/* ── Root view ──────────────────────────────────────────────────────────── */
+async function renderRoot() {
+  stack = [];
+  updateHeader();
+  setLoading();
+
+  try {
+    const items = await fetchDir();
+    const dirs  = items.filter(i => i.type === 'dir' && !i.name.startsWith('.'));
+    const recent = getRecent();
+
+    let html = '';
+
+    if (recent.length > 0) {
+      html += `<div class="section">
+        <div class="label">Tocadas recentemente</div>
+        <div class="item-list">
+          ${recent.map(s => `
+            <a class="list-item song-item"
+               href="${esc(s.url)}"
+               target="_blank" rel="noopener noreferrer"
+               data-song='${esc(JSON.stringify(s))}'>
+              <span class="item-icon">♪</span>
+              <div class="item-body">
+                <div class="item-name">${esc(s.title)}</div>
+                <div class="item-meta">${esc(s.artist)} · ${esc(s.category)}</div>
+              </div>
+              <span class="item-chevron">↗</span>
+            </a>`).join('')}
+        </div>
+      </div>
+      <hr class="accent-line">`;
+    }
+
+    html += `
+      <div class="section">
+        <div class="label">Categorias · ${dirs.length} estilos</div>
+        <div class="cat-grid">
+          ${dirs.map(d => {
+            const m = CAT_META[d.name] || { icon: '📁', desc: '' };
+            return `
+              <div class="cat-card" data-nav="${esc(d.name)}">
+                <span class="cat-icon">${m.icon}</span>
+                <div class="cat-name">${esc(d.name)}</div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+
+    app.innerHTML = html;
+  } catch(e) { setError(e); }
+}
+
+/* ── Directory view (category or artist level) ───────────────────────────── */
+async function renderDir() {
+  updateHeader();
+  setLoading();
+
+  try {
+    const items = await fetchDir(stack);
+    const dirs  = items.filter(i => i.type === 'dir');
+    const files = items.filter(i => i.type === 'file' && /\.pdf$/i.test(i.name));
+
+    if (dirs.length > 0) {
+      renderArtists(dirs);
+    } else if (files.length > 0) {
+      renderSongs(files);
+    } else {
+      app.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">🎼</div>
+        <div class="empty-title">Nenhuma cifra aqui ainda.</div>
+      </div>`;
+    }
+  } catch(e) { setError(e); }
+}
+
+function renderArtists(dirs) {
+  app.innerHTML = `
+    <div class="label">${dirs.length} artista${dirs.length !== 1 ? 's' : ''}</div>
+    <div class="item-list">
+      ${dirs.map(d => `
+        <div class="list-item" data-nav="${esc(d.name)}">
+          <span class="item-icon">🎤</span>
+          <div class="item-body">
+            <div class="item-name">${esc(artistDisplay(d.name))}</div>
+            <div class="item-meta">${esc(songCount(d.name))}</div>
+          </div>
+          <span class="item-chevron">›</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderSongs(files) {
+  const category = stack[0] || '';
+  const artist   = stack.length > 1 ? artistDisplay(stack[stack.length - 1]) : category;
+  const total    = files.length;
+
+  const songRows = files.map(f => {
+    const title = songTitle(f.name);
+    const url   = `${RAW}/${encPath([...stack, f.name])}`;
+    const entry = { title, artist, category, url };
+    return { title, entry, html: `
+      <a class="list-item song-item"
+         href="${esc(url)}"
+         target="_blank" rel="noopener noreferrer"
+         data-song='${esc(JSON.stringify(entry))}'
+         data-q="${esc(title.toLowerCase())}">
+        <span class="item-icon">♪</span>
+        <div class="item-body">
+          <div class="item-name">${esc(title)}</div>
+        </div>
+        <span class="item-chevron">↗</span>
+      </a>` };
+  });
+
+  app.innerHTML = `
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.117-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+      </svg>
+      <input class="search-input" id="searchInput" type="search"
+             placeholder="Buscar música…" autocomplete="off" aria-label="Buscar música" />
+      <button class="search-clear" id="searchClear" aria-label="Limpar busca">✕</button>
+    </div>
+    <div class="label" id="songsLabel">${total} música${total !== 1 ? 's' : ''}</div>
+    <div class="item-list" id="songsList">
+      ${songRows.map(r => r.html).join('')}
+    </div>
+    <div class="no-results" id="noResults">Nenhuma música encontrada para "<span id="noResultsQ"></span>".</div>`;
+
+  const input   = document.getElementById('searchInput');
+  const clear   = document.getElementById('searchClear');
+  const label   = document.getElementById('songsLabel');
+  const noRes   = document.getElementById('noResults');
+  const noResQ  = document.getElementById('noResultsQ');
+
+  function doFilter() {
+    const q = input.value.toLowerCase().trim();
+    clear.classList.toggle('show', q.length > 0);
+    let visible = 0;
+    document.querySelectorAll('#songsList .list-item').forEach(el => {
+      const show = !q || el.dataset.q.includes(q);
+      el.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    if (q) {
+      label.textContent = `${visible} resultado${visible !== 1 ? 's' : ''}`;
+      noResQ.textContent = input.value;
+      noRes.style.display = visible === 0 ? 'block' : 'none';
+    } else {
+      label.textContent = `${total} música${total !== 1 ? 's' : ''}`;
+      noRes.style.display = 'none';
+    }
+  }
+
+  input.addEventListener('input', doFilter);
+  clear.addEventListener('click', () => { input.value = ''; doFilter(); input.focus(); });
+}
+
+/* ── Navigation ─────────────────────────────────────────────────────────── */
+function navigate(name) {
+  stack.push(name);
+  renderDir();
+}
+
+function goBack() {
+  stack.pop();
+  if (stack.length === 0) renderRoot();
+  else renderDir();
+}
+
+document.getElementById('backBtn').addEventListener('click', goBack);
+
+/* ── Event delegation ───────────────────────────────────────────────────── */
+document.addEventListener('click', e => {
+  const navEl  = e.target.closest('[data-nav]');
+  const songEl = e.target.closest('[data-song]');
+
+  if (navEl)  { navigate(navEl.dataset.nav); return; }
+  if (songEl) {
+    try { addRecent(JSON.parse(songEl.dataset.song)); } catch {}
+  }
+});
+
+/* ── Handle browser back/forward ─────────────────────────────────────────── */
+window.addEventListener('popstate', e => {
+  if (e.state && Array.isArray(e.state.stack)) {
+    stack = e.state.stack;
+    if (stack.length === 0) renderRoot();
+    else renderDir();
+  }
+});
+
+/* ── Boot ───────────────────────────────────────────────────────────────── */
+renderRoot();
+</script>
+</body>
+</html>
