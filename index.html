@@ -154,6 +154,9 @@
     .setlist-footer{background:var(--surface);border-top:1px solid var(--border);padding:.75rem 1rem;flex-shrink:0;}
     .setlist-play-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:.9rem;font-weight:600;padding:.75rem 1rem;cursor:pointer;transition:opacity .1s;-webkit-tap-highlight-color:transparent;}
     .setlist-play-btn:active{opacity:.8;}
+    .setlist-io-row{display:flex;gap:.5rem;margin-top:.5rem;}
+    .setlist-io-btn{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text-mid);font-family:inherit;font-size:.85rem;font-weight:500;padding:.6rem 1rem;cursor:pointer;transition:background .1s,border-color .1s;-webkit-tap-highlight-color:transparent;text-align:center;}
+    .setlist-io-btn:active{background:var(--accent-lo);border-color:var(--accent);}
 
     /* Misc */
     .accent-line{height:2px;background:linear-gradient(90deg,var(--accent) 0%,transparent 100%);border:none;margin-bottom:1.25rem;border-radius:1px;opacity:.45;}
@@ -218,8 +221,13 @@
     <span class="overlay-title">🎼 Meu Repertório</span>
   </div>
   <div class="overlay-body" id="setlistBody"></div>
-  <div class="setlist-footer" id="setlistFooter" style="display:none">
-    <button class="setlist-play-btn" id="setlistPlayBtn">▶ Tocar do início</button>
+  <div class="setlist-footer" id="setlistFooter">
+    <button class="setlist-play-btn" id="setlistPlayBtn" style="display:none">▶ Tocar do início</button>
+    <div class="setlist-io-row">
+      <button class="setlist-io-btn" id="exportBtn">⬇ Exportar</button>
+      <button class="setlist-io-btn" id="importBtn">⬆ Importar</button>
+    </div>
+    <input type="file" id="importInput" accept=".json,application/json" style="display:none">
   </div>
 </div>
 
@@ -342,18 +350,20 @@ function renderSetlistPanel() {
   const footer = document.getElementById('setlistFooter');
   const list   = getSetlist();
 
+  const playBtn = document.getElementById('setlistPlayBtn');
   if (!list.length) {
     body.innerHTML = `<div class="setlist-empty">
       <div class="empty-icon">🎼</div>
       <div class="empty-title">Repertório vazio</div>
       <div>Use o botão <strong>+</strong> nas músicas para montar seu repertório.</div>
     </div>`;
-    footer.style.display = 'none';
+    if (playBtn) playBtn.style.display = 'none';
     return;
   }
+  if (playBtn) playBtn.style.display = '';
 
   body.innerHTML = `<div class="setlist-body-inner">
-    ${list.map((e, i) => `
+    ${list.map((e,i) => `
       <div class="setlist-item">
         <span class="setlist-num">${i + 1}</span>
         <div class="setlist-info" data-sl-play="${i}">
@@ -367,7 +377,6 @@ function renderSetlistPanel() {
         </div>
       </div>`).join('')}
   </div>`;
-  footer.style.display = '';
 }
 
 document.getElementById('setlistBody').addEventListener('click', e => {
@@ -399,6 +408,59 @@ document.getElementById('setlistPlayBtn').addEventListener('click', () => {
 
 document.getElementById('setlistClose').addEventListener('click', closeSetlistPanel);
 document.getElementById('setlistBtn').addEventListener('click', openSetlistPanel);
+
+/* ── Export / Import ────────────────────────────────────────────────────── */
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const list = getSetlist();
+  if (!list.length) { alert('O repertório está vazio. Adicione músicas antes de exportar.'); return; }
+  const json = JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), setlist: list }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `repertorio-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importInput').value = '';
+  document.getElementById('importInput').click();
+});
+
+document.getElementById('importInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data  = JSON.parse(ev.target.result);
+      const items = Array.isArray(data) ? data : (data.setlist || []);
+      const valid = items.filter(s => s.title && s.url);
+      if (!valid.length) { alert('Arquivo inválido ou repertório vazio.'); return; }
+      const current = getSetlist();
+      if (current.length) {
+        const merge = confirm(`Você já tem ${current.length} música(s) no repertório.\n\nCancelar = substituir tudo\nOK = adicionar ao repertório atual`);
+        if (merge) {
+          // merge: add only entries not already present
+          const urls = new Set(current.map(s => s.url));
+          const news = valid.filter(s => !urls.has(s.url));
+          saveSetlist([...current, ...news]);
+          alert(`${news.length} música(s) adicionada(s) ao repertório.`);
+        } else {
+          saveSetlist(valid);
+          alert(`${valid.length} música(s) importada(s). Repertório anterior substituído.`);
+        }
+      } else {
+        saveSetlist(valid);
+        alert(`${valid.length} música(s) importada(s) com sucesso!`);
+      }
+      renderSetlistPanel();
+      refreshAddBtns();
+    } catch { alert('Erro ao ler o arquivo. Verifique se é um arquivo de repertório válido.'); }
+  };
+  reader.readAsText(file);
+});
 
 /* ── State ───────────────────────────────────────────────────────────────── */
 let stack    = [];
