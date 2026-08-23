@@ -619,7 +619,7 @@ function renderSongs(files) {
 
   const songRows = files.map(f => {
     const title = songTitle(f.name);
-    const url   = `${RAW}/${encPath([...stack, f.name])}`;
+    const url   = `${GH}/${encPath([...stack, f.name])}`;
     const entry = { title, artist, category, url };
     return { title, entry, html: `
       <a class="list-item song-item"
