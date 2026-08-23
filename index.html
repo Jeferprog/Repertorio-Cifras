@@ -378,14 +378,10 @@
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    display: flex;
-    flex-direction: column;
-    position: relative;
+    background: var(--surface2);
   }
 
   .viewer-loading {
-    position: absolute;
-    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -393,18 +389,92 @@
     gap: 0.875rem;
     color: var(--text-dim);
     font-size: 0.875rem;
-    background: var(--bg);
-    z-index: 1;
+    padding: 4rem 1rem;
+    text-align: center;
   }
 
-  .viewer-frame {
-    flex: 1;
-    width: 100%;
-    min-height: 0;
-    border: none;
-    background: var(--bg);
-    display: block;
+  .viewer-loading-sub {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    opacity: 0.7;
   }
+
+  .viewer-canvas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .viewer-canvas canvas {
+    display: block;
+    box-shadow: 0 2px 12px rgba(0,0,0,.35);
+    border-radius: 2px;
+  }
+
+  /* ── Auto-scroll controls ─────────────────────────────────────── */
+  .viewer-controls {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 0.625rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .ctrl-play {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.5rem 1.125rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.1s;
+    min-width: 96px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ctrl-play:active { opacity: 0.8; }
+
+  .ctrl-speed {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+
+  .ctrl-speed-label {
+    font-size: 0.78rem;
+    color: var(--text-mid);
+    min-width: 5rem;
+    text-align: center;
+  }
+
+  .ctrl-speed-btn {
+    width: 34px;
+    height: 34px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: inherit;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ctrl-speed-btn:active { background: var(--accent-lo); border-color: var(--accent); }
 
   @media (prefers-reduced-motion: reduce) {
     .viewer { transition: none; }
@@ -452,9 +522,21 @@
     <button class="viewer-back" id="viewerBack">‹ Voltar</button>
     <span class="viewer-title" id="viewerTitle"></span>
   </div>
-  <div class="viewer-body">
-    <div class="viewer-loading" id="viewerLoading"><div class="spinner"></div>Carregando cifra…</div>
-    <iframe id="viewerFrame" class="viewer-frame" src="" frameborder="0" title="Cifra"></iframe>
+  <div class="viewer-body" id="viewerBody">
+    <div class="viewer-loading" id="viewerLoading">
+      <div class="spinner"></div>
+      Carregando cifra…
+      <span class="viewer-loading-sub" id="viewerLoadingPages"></span>
+    </div>
+    <div id="viewerCanvas" class="viewer-canvas"></div>
+  </div>
+  <div class="viewer-controls" id="viewerControls" style="display:none">
+    <button class="ctrl-play" id="scrollToggle">▶ Rolar</button>
+    <div class="ctrl-speed">
+      <button class="ctrl-speed-btn" id="speedDown" aria-label="Diminuir velocidade">−</button>
+      <span class="ctrl-speed-label" id="speedLabel">Velocidade 3</span>
+      <button class="ctrl-speed-btn" id="speedUp" aria-label="Aumentar velocidade">+</button>
+    </div>
   </div>
 </div>
 
@@ -789,31 +871,131 @@ function goBack() {
 
 document.getElementById('backBtn').addEventListener('click', goBack);
 
+/* ── PDF.js (lazy-loaded) ────────────────────────────────────────────────── */
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
+let pdfJsReady = false;
+
+function loadPdfJs() {
+  if (pdfJsReady) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = `${PDFJS}/pdf.min.js`;
+    s.onload = () => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS}/pdf.worker.min.js`;
+      pdfJsReady = true;
+      resolve();
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+/* ── Auto-scroll ─────────────────────────────────────────────────────────── */
+const SPEEDS   = [0.12, 0.25, 0.45, 0.75, 1.1, 1.8, 3.0];
+let   speedIdx = 2;
+let   rafId    = null;
+
+function updateSpeedLabel() {
+  document.getElementById('speedLabel').textContent = `Velocidade ${speedIdx + 1} / ${SPEEDS.length}`;
+}
+
+function stopScroll() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  const btn = document.getElementById('scrollToggle');
+  if (btn) btn.textContent = '▶ Rolar';
+}
+
+function startScroll() {
+  const body = document.getElementById('viewerBody');
+  const btn  = document.getElementById('scrollToggle');
+  btn.textContent = '⏸ Pausar';
+  function step() {
+    body.scrollTop += SPEEDS[speedIdx];
+    const atEnd = body.scrollTop >= body.scrollHeight - body.clientHeight - 1;
+    if (!atEnd) { rafId = requestAnimationFrame(step); }
+    else         { rafId = null; btn.textContent = '▶ Rolar'; }
+  }
+  rafId = requestAnimationFrame(step);
+}
+
+function toggleScroll() {
+  if (rafId) stopScroll(); else startScroll();
+}
+
+document.getElementById('scrollToggle').addEventListener('click', toggleScroll);
+document.getElementById('speedDown').addEventListener('click', () => {
+  speedIdx = Math.max(0, speedIdx - 1); updateSpeedLabel();
+});
+document.getElementById('speedUp').addEventListener('click', () => {
+  speedIdx = Math.min(SPEEDS.length - 1, speedIdx + 1); updateSpeedLabel();
+});
+
 /* ── Song viewer ────────────────────────────────────────────────────────── */
-function openViewer(entry) {
+async function openViewer(entry) {
   addRecent(entry);
-  const overlay = document.getElementById('viewer');
-  const frame   = document.getElementById('viewerFrame');
-  const loading = document.getElementById('viewerLoading');
+  stopScroll();
+
+  const overlay  = document.getElementById('viewer');
+  const body     = document.getElementById('viewerBody');
+  const loading  = document.getElementById('viewerLoading');
+  const pages    = document.getElementById('viewerLoadingPages');
+  const canvas   = document.getElementById('viewerCanvas');
+  const controls = document.getElementById('viewerControls');
 
   document.getElementById('viewerTitle').textContent = entry.title;
-  loading.style.display = '';
-  frame.src = '';
+  loading.style.display  = '';
+  pages.textContent      = '';
+  canvas.innerHTML       = '';
+  controls.style.display = 'none';
+  body.scrollTop         = 0;
 
   overlay.setAttribute('aria-hidden', 'false');
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
 
-  frame.onload = () => { loading.style.display = 'none'; };
-  frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(entry.url)}&embedded=true`;
+  try {
+    await loadPdfJs();
+    const pdf   = await pdfjsLib.getDocument(entry.url).promise;
+    const dpr   = window.devicePixelRatio || 1;
+    const width = body.clientWidth - 16;
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      pages.textContent = `Página ${i} de ${pdf.numPages}…`;
+      const page     = await pdf.getPage(i);
+      const base     = page.getViewport({ scale: 1 });
+      const scale    = (width / base.width) * dpr;
+      const vp       = page.getViewport({ scale });
+      const c        = document.createElement('canvas');
+      c.width        = vp.width;
+      c.height       = vp.height;
+      c.style.width  = `${width}px`;
+      c.style.height = `${Math.round(vp.height / dpr)}px`;
+      await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      canvas.appendChild(c);
+    }
+
+    loading.style.display  = 'none';
+    controls.style.display = '';
+    updateSpeedLabel();
+  } catch(err) {
+    loading.innerHTML = '<div class="empty-icon">⚠️</div><div>Erro ao carregar o PDF.<br>Verifique sua conexão.</div>';
+  }
 }
 
 function closeViewer() {
+  stopScroll();
   const overlay = document.getElementById('viewer');
   overlay.classList.remove('open');
   overlay.setAttribute('aria-hidden', 'true');
   document.body.style.overflow = '';
-  setTimeout(() => { document.getElementById('viewerFrame').src = ''; }, 320);
+  setTimeout(() => {
+    document.getElementById('viewerCanvas').innerHTML = '';
+    document.getElementById('viewerControls').style.display = 'none';
+    document.getElementById('viewerLoading').style.display  = '';
+    document.getElementById('viewerLoading').innerHTML = `
+      <div class="spinner"></div>Carregando cifra…
+      <span class="viewer-loading-sub" id="viewerLoadingPages"></span>`;
+  }, 320);
 }
 
 document.getElementById('viewerBack').addEventListener('click', closeViewer);
