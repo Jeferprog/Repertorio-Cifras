@@ -795,9 +795,22 @@ function closeViewer() {
 
 document.getElementById('viewerBack').addEventListener('click', closeViewer);
 document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  const viewerOpen = document.getElementById('viewer').classList.contains('open');
   if(e.key==='Escape'){
-    if(document.getElementById('viewer').classList.contains('open')) closeViewer();
-    else closeSetlistPanel();
+    if(viewerOpen) closeViewer(); else closeSetlistPanel();
+    return;
+  }
+  if(!viewerOpen) return;
+  if(e.key===' '){
+    e.preventDefault();
+    toggleScroll();
+  } else if(e.key==='ArrowDown'){
+    e.preventDefault();
+    document.getElementById('viewerBody').scrollTop += 160;
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    document.getElementById('viewerBody').scrollTop -= 160;
   }
 });
 
