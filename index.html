@@ -158,6 +158,20 @@
     .setlist-io-btn{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text-mid);font-family:inherit;font-size:.85rem;font-weight:500;padding:.6rem 1rem;cursor:pointer;transition:background .1s,border-color .1s;-webkit-tap-highlight-color:transparent;text-align:center;}
     .setlist-io-btn:active{background:var(--accent-lo);border-color:var(--accent);}
 
+    /* Transpose row */
+    .ctrl-transpose-row{display:flex;align-items:center;gap:.5rem;border-top:1px solid var(--border);padding-top:.45rem;}
+    .ctrl-transpose-label{font-size:.75rem;color:var(--text-dim);flex-shrink:0;}
+    .ctrl-transpose-val{font-size:.82rem;font-weight:600;color:var(--accent);min-width:3.2rem;text-align:center;}
+
+    /* Text (cifra) view */
+    .text-view-wrap{width:100%;padding:.75rem .875rem 1.5rem;}
+    .tv-page-sep{text-align:center;color:var(--text-dim);font-size:.7rem;margin:.6rem 0;letter-spacing:.15em;}
+    .tv-row{font-family:'Courier New',Courier,monospace;white-space:pre;line-height:1.55;overflow-x:visible;}
+    .tv-row.chord{font-size:.8rem;color:var(--text-mid);}
+    .tv-row.lyric{font-size:.88rem;color:var(--text);}
+    .tv-row.empty{height:.4em;}
+    .tv-chord{color:var(--accent);font-weight:700;}
+
     /* Misc */
     .accent-line{height:2px;background:linear-gradient(90deg,var(--accent) 0%,transparent 100%);border:none;margin-bottom:1.25rem;border-radius:1px;opacity:.45;}
     .notice{background:var(--accent-lo);border:1px solid var(--accent);border-radius:8px;padding:.75rem 1rem;font-size:.8rem;color:var(--text-mid);margin-bottom:1rem;}
@@ -210,19 +224,14 @@
         <span class="ctrl-speed-label" id="speedLabel">Velocidade 3</span>
         <button class="ctrl-speed-btn" id="speedUp" aria-label="Aumentar velocidade">+</button>
       </div>
-      <button class="ctrl-speed-btn" id="testTextBtn" title="Testar extração de texto" style="width:auto;padding:0 .6rem;font-size:.7rem;">🔍</button>
     </div>
-  </div>
-</div>
-
-<!-- Text extraction test panel -->
-<div id="textTestPanel" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.7);overflow-y:auto;padding:1rem;">
-  <div style="background:var(--bg);border-radius:12px;max-width:560px;margin:0 auto;padding:1.25rem;font-family:monospace;font-size:.78rem;line-height:1.6;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-      <strong style="font-family:'Inter',sans-serif;font-size:.95rem;">🔍 Extração de texto do PDF</strong>
-      <button id="testTextClose" style="background:none;border:1px solid var(--border);border-radius:6px;padding:.25rem .75rem;cursor:pointer;font-family:inherit;">Fechar</button>
+    <div class="ctrl-transpose-row">
+      <span class="ctrl-transpose-label">Tom</span>
+      <button class="ctrl-speed-btn" id="transposeDown" title="Meio tom abaixo">♭</button>
+      <span class="ctrl-transpose-val" id="transposeLabel">0</span>
+      <button class="ctrl-speed-btn" id="transposeUp" title="Meio tom acima">♯</button>
+      <button class="ctrl-nav-btn" id="transposeReset" title="Voltar ao tom original" style="display:none;margin-left:auto;font-size:.72rem;">↺ orig.</button>
     </div>
-    <div id="textTestResult" style="white-space:pre-wrap;color:var(--text);word-break:break-all;"></div>
   </div>
 </div>
 
@@ -813,6 +822,13 @@ function openViewer(entry, playlist, idx) {
 
 async function loadContent(entry) {
   addRecent(entry);
+  // Reset transpose state for new song
+  transposeState  = 0;
+  currentPdfDoc   = null;
+  cachedCanvases  = [];
+  extractedPages  = null;
+  updateTransposeLabel();
+
   const body    = document.getElementById('viewerBody');
   const loading = document.getElementById('viewerLoading');
   const canvas  = document.getElementById('viewerCanvas');
@@ -828,12 +844,13 @@ async function loadContent(entry) {
 
   try {
     await loadPdfJs();
-    const pages = document.getElementById('viewerLoadingPages');
-    const pdf   = await pdfjsLib.getDocument(entry.url).promise;
-    const dpr   = window.devicePixelRatio||1;
-    const width = body.clientWidth-16;
+    const pgLabel = document.getElementById('viewerLoadingPages');
+    const pdf     = await pdfjsLib.getDocument(entry.url).promise;
+    currentPdfDoc = pdf;
+    const dpr     = window.devicePixelRatio||1;
+    const width   = body.clientWidth-16;
     for(let i=1;i<=pdf.numPages;i++){
-      if(pages) pages.textContent=`Página ${i} de ${pdf.numPages}…`;
+      if(pgLabel) pgLabel.textContent=`Página ${i} de ${pdf.numPages}…`;
       const page=await pdf.getPage(i);
       const base=page.getViewport({scale:1});
       const vp=page.getViewport({scale:(width/base.width)*dpr});
@@ -843,6 +860,7 @@ async function loadContent(entry) {
       await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
       canvas.appendChild(c);
     }
+    cachedCanvases = [...canvas.querySelectorAll('canvas')];
     loading.style.display='none';
     controls.style.display='';
     updateSpeedLabel();
@@ -921,48 +939,150 @@ document.addEventListener('click', e=>{
   }
 });
 
-/* ── Text extraction test ────────────────────────────────────────────────── */
-const CHORD_RE = /\b([A-G]|D[oó]|R[eé]|Mi|F[aá]|Sol|L[aá]|Si)(#|b|m|maj|dim|aug|sus|add|\d)*\b/g;
+/* ── Transposition engine ────────────────────────────────────────────────── */
+const NOTES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTES_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const NOTE_IDX    = {C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
 
-document.getElementById('testTextBtn').addEventListener('click', async () => {
-  const panel  = document.getElementById('textTestPanel');
-  const result = document.getElementById('textTestResult');
-  const entry  = viewerPlaylist[viewerIdx];
-  if (!entry) return;
+function transposeNote(note, st) {
+  const i = NOTE_IDX[note];
+  if (i === undefined) return note;
+  const ni = ((i + st) % 12 + 12) % 12;
+  return (st < 0 ? NOTES_FLAT : NOTES_SHARP)[ni];
+}
 
-  panel.style.display = '';
-  result.textContent  = 'Extraindo texto…';
+// Handles: Am, G#7, Bbmaj7, F#m, C/E, Dm7b5, etc.
+const CHORD_TOKEN_RE = /^([A-G](?:#|b)?)((?:m(?:aj\d*)?|min|dim|aug|sus\d*|add\d*|\d+|°|ø)*)(?:\/([A-G](?:#|b)?))?$/;
 
-  try {
-    await loadPdfJs();
-    const pdf    = await pdfjsLib.getDocument(entry.url).promise;
-    let   allText = '';
-    let   chordsFound = new Set();
+function isChord(tok) { return CHORD_TOKEN_RE.test(tok); }
 
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page    = await pdf.getPage(p);
-      const content = await page.getTextContent();
-      const pageText = content.items.map(i => i.str).join(' ');
-      allText += `\n--- Página ${p} ---\n${pageText}`;
-      const matches = pageText.match(CHORD_RE) || [];
-      matches.forEach(c => chordsFound.add(c));
+function transposeChord(chord, st) {
+  if (st === 0) return chord;
+  const m = chord.match(CHORD_TOKEN_RE);
+  if (!m) return chord;
+  const [, root, mods, bass] = m;
+  return transposeNote(root, st) + mods + (bass ? '/' + transposeNote(bass, st) : '');
+}
+
+function isChordLine(line) {
+  const toks = line.trim().split(/\s+/).filter(t => t);
+  if (!toks.length) return false;
+  const n = toks.filter(isChord).length;
+  return n >= 1 && n / toks.length >= 0.45;
+}
+
+/* Extract text lines from a loaded pdfjsLib PDF document */
+async function extractTextPages(pdf) {
+  const pages = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page    = await pdf.getPage(p);
+    const content = await page.getTextContent();
+
+    // Bucket items by Y position (5-unit tolerance)
+    const byY = new Map();
+    for (const item of content.items) {
+      if (!item.str) continue;
+      const y = Math.round(item.transform[5] / 5) * 5;
+      if (!byY.has(y)) byY.set(y, []);
+      byY.get(y).push({ x: item.transform[4], str: item.str, w: item.width || 0 });
     }
 
-    const totalChars   = allText.replace(/\s/g,'').length;
-    const chordList    = [...chordsFound].join(', ') || '(nenhum detectado)';
-    const preview      = allText.slice(0, 1200);
+    // Sort top-to-bottom (PDF Y=0 at bottom → descending)
+    const lines = [...byY.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([, items]) => {
+        items.sort((a, b) => a.x - b.x);
+        let line = '', lastX = null, lastW = 0;
+        for (const it of items) {
+          if (lastX !== null) {
+            const gap = it.x - (lastX + lastW);
+            line += ' '.repeat(Math.max(1, Math.round(gap / 6)));
+          }
+          line += it.str;
+          lastX = it.x; lastW = it.w;
+        }
+        return line;
+      });
 
-    result.textContent =
-      `✅ Caracteres extraídos: ${totalChars}\n` +
-      `🎵 Acordes detectados: ${chordList}\n\n` +
-      `── Prévia do texto (primeiros 1200 chars) ──\n${preview}`;
-  } catch(e) {
-    result.textContent = `❌ Erro: ${e.message}`;
+    pages.push(lines);
   }
-});
+  return pages;
+}
 
-document.getElementById('testTextClose').addEventListener('click', () => {
-  document.getElementById('textTestPanel').style.display = 'none';
+/* Render extracted text as HTML with highlighted/transposed chords */
+function renderTextView(pages, st) {
+  const canvas = document.getElementById('viewerCanvas');
+  const rows = [];
+  pages.forEach((lines, pi) => {
+    if (pi > 0) rows.push(`<div class="tv-row tv-page-sep">• • •</div>`);
+    for (const line of lines) {
+      if (!line.trim()) { rows.push(`<div class="tv-row empty"></div>`); continue; }
+      if (isChordLine(line)) {
+        const html = line.replace(/\S+/g, tok =>
+          isChord(tok) ? `<span class="tv-chord">${esc(transposeChord(tok,st))}</span>` : esc(tok));
+        rows.push(`<div class="tv-row chord">${html}</div>`);
+      } else {
+        rows.push(`<div class="tv-row lyric">${esc(line)}</div>`);
+      }
+    }
+  });
+  canvas.innerHTML = `<div class="text-view-wrap">${rows.join('')}</div>`;
+}
+
+/* Transpose state */
+let transposeState = 0;
+let currentPdfDoc  = null;   // cached pdfjsLib document
+let cachedCanvases = [];     // cached canvas elements (PDF view)
+let extractedPages = null;   // cached text lines
+
+function updateTransposeLabel() {
+  const lbl   = document.getElementById('transposeLabel');
+  const reset = document.getElementById('transposeReset');
+  if (!lbl) return;
+  lbl.textContent = transposeState === 0 ? '0' : (transposeState > 0 ? `+${transposeState}` : `${transposeState}`);
+  if (reset) reset.style.display = transposeState !== 0 ? '' : 'none';
+}
+
+async function applyTranspose(delta) {
+  transposeState += delta;
+  updateTransposeLabel();
+  if (!currentPdfDoc) return;
+
+  const canvas  = document.getElementById('viewerCanvas');
+  const loading = document.getElementById('viewerLoading');
+
+  if (transposeState === 0) {
+    // Restore PDF canvas from cache
+    canvas.innerHTML = '';
+    cachedCanvases.forEach(c => canvas.appendChild(c));
+    return;
+  }
+
+  // Extract text once
+  if (!extractedPages) {
+    loading.style.display = '';
+    loading.innerHTML = `<div class="spinner"></div>Extraindo texto…`;
+    canvas.innerHTML  = '';
+    try {
+      extractedPages = await extractTextPages(currentPdfDoc);
+    } catch {
+      loading.innerHTML = '<div class="empty-icon">⚠️</div><div>Erro ao extrair texto.</div>';
+      return;
+    }
+    loading.style.display = 'none';
+  }
+
+  renderTextView(extractedPages, transposeState);
+}
+
+document.getElementById('transposeDown').addEventListener('click', () => applyTranspose(-1));
+document.getElementById('transposeUp').addEventListener('click',   () => applyTranspose(+1));
+document.getElementById('transposeReset').addEventListener('click', () => {
+  transposeState = 0;
+  updateTransposeLabel();
+  const canvas = document.getElementById('viewerCanvas');
+  canvas.innerHTML = '';
+  cachedCanvases.forEach(c => canvas.appendChild(c));
 });
 
 /* ── Boot ────────────────────────────────────────────────────────────────── */
