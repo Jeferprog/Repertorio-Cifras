@@ -170,13 +170,10 @@
     .tv-row.lyric{font-size:.88rem;color:var(--text);}
     .tv-row.empty{height:.4em;}
     .tv-chord{color:var(--accent);font-weight:700;}
-    /* Chord lines with absolute-positioned spans keyed to PDF X coords */
-    .tv-row.chord-abs{position:relative;height:1.55em;min-height:1.55em;white-space:nowrap;}
-    .tv-row.chord-abs .tv-chord,.tv-row.chord-abs .tv-nc{
-      position:absolute;white-space:nowrap;
-      font-family:'Courier New',Courier,monospace;font-size:.8rem;
-    }
-    .tv-row.chord-abs .tv-chord{color:var(--accent);font-weight:700;}
+    /* Chord lines: absolute-positioned spans keyed to char positions.
+       Font-size matches lyric lines so 1ch == same width for alignment. */
+    .tv-row.chord-abs{position:relative;height:1.55em;min-height:1.55em;font-size:.88rem;}
+    .tv-row.chord-abs .tv-chord,.tv-row.chord-abs .tv-nc{position:absolute;white-space:nowrap;}
     .tv-row.chord-abs .tv-nc{color:var(--text-mid);}
 
     /* Misc */
@@ -1000,15 +997,19 @@ async function extractTextPages(pdf) {
       .map(([, rowItems]) => {
         rowItems.sort((a, b) => a.x - b.x);
         let text = '', lastX = null, lastW = 0;
+        const charPositions = []; // char index in `text` where each item's content starts
         for (const it of rowItems) {
           if (lastX !== null) {
             const gap = it.x - (lastX + lastW);
             text += ' '.repeat(Math.max(1, Math.round(gap / 6)));
           }
+          // Account for any leading whitespace inside the item string itself
+          const leading = it.str.length - it.str.trimStart().length;
+          charPositions.push(text.length + leading);
           text += it.str;
           lastX = it.x; lastW = it.w;
         }
-        return { text, items: rowItems, pageWidth: vp.width };
+        return { text, items: rowItems, charPositions };
       });
 
     pages.push(lines);
@@ -1025,24 +1026,26 @@ function renderTextView(pages, st) {
   pages.forEach((lines, pi) => {
     if (pi > 0) rows.push(`<div class="tv-row tv-page-sep">• • •</div>`);
     for (const line of lines) {
-      const text      = typeof line === 'string' ? line : line.text;
-      const items     = typeof line === 'string' ? null  : line.items;
-      const pageWidth = typeof line === 'string' ? 595   : (line.pageWidth || 595);
+      const text          = typeof line === 'string' ? line : line.text;
+      const items         = typeof line === 'string' ? null : line.items;
+      const charPositions = typeof line === 'string' ? null : line.charPositions;
 
       if (!text.trim()) { rows.push(`<div class="tv-row empty"></div>`); continue; }
 
-      if (isChordLine(text) && items) {
-        // Position each PDF text-run span using its original X coordinate as a
-        // percentage of the page width — transposition changes label length but
-        // never the anchor position, so chords stay above the right syllable.
-        const spans = items.map(it => {
+      if (isChordLine(text) && items && charPositions) {
+        // Position each chord span using its character offset in the reconstructed
+        // text (in `ch` units). Lyric lines use the same reconstruction algorithm
+        // and the same monospace font, so character N in a chord line sits directly
+        // above character N in the lyric line — alignment is exact regardless of
+        // how long the transposed chord label is.
+        const spans = items.map((it, idx) => {
           const tok = it.str.trim();
           if (!tok) return '';
-          const xPct = ((it.x / pageWidth) * 100).toFixed(3);
+          const ch = charPositions[idx];
           if (isChord(tok)) {
-            return `<span class="tv-chord" style="left:${xPct}%">${esc(transposeChord(tok, st))}</span>`;
+            return `<span class="tv-chord" style="left:${ch}ch">${esc(transposeChord(tok, st))}</span>`;
           }
-          return `<span class="tv-nc" style="left:${xPct}%">${esc(tok)}</span>`;
+          return `<span class="tv-nc" style="left:${ch}ch">${esc(tok)}</span>`;
         }).join('');
         rows.push(`<div class="tv-row chord-abs">${spans}</div>`);
       } else {
