@@ -167,10 +167,17 @@
     .text-view-wrap{width:100%;padding:.75rem .875rem 1.5rem;}
     .tv-page-sep{text-align:center;color:var(--text-dim);font-size:.7rem;margin:.6rem 0;letter-spacing:.15em;}
     .tv-row{font-family:'Courier New',Courier,monospace;white-space:pre;line-height:1.55;overflow-x:visible;}
-    .tv-row.chord{font-size:.8rem;color:var(--text-mid);}
     .tv-row.lyric{font-size:.88rem;color:var(--text);}
     .tv-row.empty{height:.4em;}
     .tv-chord{color:var(--accent);font-weight:700;}
+    /* Chord lines with absolute-positioned spans keyed to PDF X coords */
+    .tv-row.chord-abs{position:relative;height:1.55em;min-height:1.55em;white-space:nowrap;}
+    .tv-row.chord-abs .tv-chord,.tv-row.chord-abs .tv-nc{
+      position:absolute;white-space:nowrap;
+      font-family:'Courier New',Courier,monospace;font-size:.8rem;
+    }
+    .tv-row.chord-abs .tv-chord{color:var(--accent);font-weight:700;}
+    .tv-row.chord-abs .tv-nc{color:var(--text-mid);}
 
     /* Misc */
     .accent-line{height:2px;background:linear-gradient(90deg,var(--accent) 0%,transparent 100%);border:none;margin-bottom:1.25rem;border-radius:1px;opacity:.45;}
@@ -971,14 +978,15 @@ function isChordLine(line) {
   return n >= 1 && n / toks.length >= 0.45;
 }
 
-/* Extract text lines from a loaded pdfjsLib PDF document */
+/* Extract text lines from a loaded pdfjsLib PDF document.
+   Returns pages of {text, items:[{x,str,w}], pageWidth} objects. */
 async function extractTextPages(pdf) {
   const pages = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const page    = await pdf.getPage(p);
+    const vp      = page.getViewport({ scale: 1 });
     const content = await page.getTextContent();
 
-    // Bucket items by Y position (5-unit tolerance)
     const byY = new Map();
     for (const item of content.items) {
       if (!item.str) continue;
@@ -987,21 +995,20 @@ async function extractTextPages(pdf) {
       byY.get(y).push({ x: item.transform[4], str: item.str, w: item.width || 0 });
     }
 
-    // Sort top-to-bottom (PDF Y=0 at bottom → descending)
     const lines = [...byY.entries()]
       .sort((a, b) => b[0] - a[0])
-      .map(([, items]) => {
-        items.sort((a, b) => a.x - b.x);
-        let line = '', lastX = null, lastW = 0;
-        for (const it of items) {
+      .map(([, rowItems]) => {
+        rowItems.sort((a, b) => a.x - b.x);
+        let text = '', lastX = null, lastW = 0;
+        for (const it of rowItems) {
           if (lastX !== null) {
             const gap = it.x - (lastX + lastW);
-            line += ' '.repeat(Math.max(1, Math.round(gap / 6)));
+            text += ' '.repeat(Math.max(1, Math.round(gap / 6)));
           }
-          line += it.str;
+          text += it.str;
           lastX = it.x; lastW = it.w;
         }
-        return line;
+        return { text, items: rowItems, pageWidth: vp.width };
       });
 
     pages.push(lines);
@@ -1009,20 +1016,37 @@ async function extractTextPages(pdf) {
   return pages;
 }
 
-/* Render extracted text as HTML with highlighted/transposed chords */
+/* Render extracted text as HTML with highlighted/transposed chords.
+   Chord lines use CSS absolute positioning from PDF X coordinates so
+   chords stay above the correct syllables regardless of transposition. */
 function renderTextView(pages, st) {
   const canvas = document.getElementById('viewerCanvas');
   const rows = [];
   pages.forEach((lines, pi) => {
     if (pi > 0) rows.push(`<div class="tv-row tv-page-sep">• • •</div>`);
     for (const line of lines) {
-      if (!line.trim()) { rows.push(`<div class="tv-row empty"></div>`); continue; }
-      if (isChordLine(line)) {
-        const html = line.replace(/\S+/g, tok =>
-          isChord(tok) ? `<span class="tv-chord">${esc(transposeChord(tok,st))}</span>` : esc(tok));
-        rows.push(`<div class="tv-row chord">${html}</div>`);
+      const text      = typeof line === 'string' ? line : line.text;
+      const items     = typeof line === 'string' ? null  : line.items;
+      const pageWidth = typeof line === 'string' ? 595   : (line.pageWidth || 595);
+
+      if (!text.trim()) { rows.push(`<div class="tv-row empty"></div>`); continue; }
+
+      if (isChordLine(text) && items) {
+        // Position each PDF text-run span using its original X coordinate as a
+        // percentage of the page width — transposition changes label length but
+        // never the anchor position, so chords stay above the right syllable.
+        const spans = items.map(it => {
+          const tok = it.str.trim();
+          if (!tok) return '';
+          const xPct = ((it.x / pageWidth) * 100).toFixed(3);
+          if (isChord(tok)) {
+            return `<span class="tv-chord" style="left:${xPct}%">${esc(transposeChord(tok, st))}</span>`;
+          }
+          return `<span class="tv-nc" style="left:${xPct}%">${esc(tok)}</span>`;
+        }).join('');
+        rows.push(`<div class="tv-row chord-abs">${spans}</div>`);
       } else {
-        rows.push(`<div class="tv-row lyric">${esc(line)}</div>`);
+        rows.push(`<div class="tv-row lyric">${esc(text)}</div>`);
       }
     }
   });
