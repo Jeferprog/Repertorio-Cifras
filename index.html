@@ -122,20 +122,26 @@
     .viewer-canvas{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;}
     .viewer-canvas canvas{display:block;box-shadow:0 2px 12px rgba(0,0,0,.35);border-radius:2px;}
 
-    /* Viewer controls — two rows */
-    .viewer-controls{background:var(--surface);border-top:1px solid var(--border);padding:.5rem 1rem;flex-shrink:0;display:flex;flex-direction:column;gap:.5rem;}
-    .ctrl-nav-row{display:flex;align-items:center;gap:.5rem;}
-    .ctrl-nav-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.8rem;font-weight:500;padding:.375rem .75rem;cursor:pointer;flex-shrink:0;transition:background .1s,border-color .1s;-webkit-tap-highlight-color:transparent;}
-    .ctrl-nav-btn:active{background:var(--accent-lo);border-color:var(--accent);}
-    .ctrl-nav-btn:disabled{opacity:.35;cursor:default;}
-    .ctrl-nav-info{flex:1;text-align:center;font-size:.75rem;color:var(--text-dim);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .ctrl-scroll-row{display:flex;align-items:center;gap:.75rem;}
-    .ctrl-play{background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.875rem;font-weight:600;padding:.5rem 1.125rem;cursor:pointer;flex-shrink:0;transition:opacity .1s;min-width:96px;-webkit-tap-highlight-color:transparent;}
-    .ctrl-play:active{opacity:.8;}
-    .ctrl-speed{display:flex;align-items:center;gap:.5rem;margin-left:auto;}
-    .ctrl-speed-label{font-size:.78rem;color:var(--text-mid);min-width:5rem;text-align:center;}
-    .ctrl-speed-btn{width:34px;height:34px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit;transition:background .1s;-webkit-tap-highlight-color:transparent;}
-    .ctrl-speed-btn:active{background:var(--accent-lo);border-color:var(--accent);}
+    /* Floating side controls panel */
+    .viewer-side-panel{position:absolute;right:0;top:52px;bottom:0;z-index:10;display:flex;flex-direction:row;align-items:center;pointer-events:none;}
+    .side-body{background:var(--surface);border:1px solid var(--border);border-right:none;border-radius:14px 0 0 14px;padding:.75rem .625rem;display:flex;flex-direction:column;gap:.5rem;box-shadow:-3px 0 14px rgba(0,0,0,.2);pointer-events:all;max-height:80vh;overflow-y:auto;}
+    .viewer-side-panel.collapsed .side-body{display:none;}
+    .side-tab{width:20px;height:60px;background:var(--surface);border:1px solid var(--border);border-right:none;border-radius:7px 0 0 7px;color:var(--text-dim);font-size:.85rem;cursor:pointer;pointer-events:all;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:background .1s;flex-shrink:0;}
+    .side-tab:active{background:var(--accent-lo);}
+    .side-row{display:flex;align-items:center;gap:.375rem;}
+    .side-btn{width:44px;height:44px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit;transition:background .1s;-webkit-tap-highlight-color:transparent;}
+    .side-btn:active{background:var(--accent-lo);border-color:var(--accent);}
+    .side-btn:disabled{opacity:.35;cursor:default;}
+    .side-info{font-size:.63rem;color:var(--text-dim);text-align:center;flex:1;min-width:1.5rem;line-height:1.2;}
+    .side-play-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.85rem;font-weight:600;padding:.625rem .5rem;cursor:pointer;text-align:center;transition:opacity .1s;-webkit-tap-highlight-color:transparent;width:100%;}
+    .side-play-btn:active{opacity:.8;}
+    .side-sm{width:34px;height:34px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit;transition:background .1s;-webkit-tap-highlight-color:transparent;}
+    .side-sm:active{background:var(--accent-lo);border-color:var(--accent);}
+    .side-lbl{font-size:.7rem;color:var(--text-mid);flex:1;text-align:center;min-width:2.8rem;}
+    .side-accent{font-size:.85rem;font-weight:700;color:var(--accent);flex:1;text-align:center;min-width:2rem;}
+    .side-sep{border:none;border-top:1px solid var(--border);margin:.1rem 0;}
+    .side-reset{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-family:inherit;font-size:.7rem;padding:.3rem .4rem;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;transition:background .1s,border-color .1s;width:100%;}
+    .side-reset:active{background:var(--accent-lo);border-color:var(--accent);}
 
     /* Setlist panel internals */
     .setlist-body-inner{padding:1rem;display:flex;flex-direction:column;gap:.5rem;min-height:100%;}
@@ -216,27 +222,29 @@
     </div>
     <div id="viewerCanvas" class="viewer-canvas"></div>
   </div>
-  <div class="viewer-controls" id="viewerControls" style="display:none">
-    <div class="ctrl-nav-row">
-      <button class="ctrl-nav-btn" id="prevBtn">← Anterior</button>
-      <span class="ctrl-nav-info" id="navInfo"></span>
-      <button class="ctrl-nav-btn" id="nextBtn">Próxima →</button>
-    </div>
-    <div class="ctrl-scroll-row">
-      <button class="ctrl-play" id="scrollToggle">▶ Rolar</button>
-      <div class="ctrl-speed">
-        <button class="ctrl-speed-btn" id="speedDown" aria-label="Diminuir velocidade">−</button>
-        <span class="ctrl-speed-label" id="speedLabel">Velocidade 3</span>
-        <button class="ctrl-speed-btn" id="speedUp" aria-label="Aumentar velocidade">+</button>
+  <div id="viewerControls" class="viewer-side-panel" style="display:none">
+    <div class="side-body" id="sidePanelBody">
+      <div class="side-row">
+        <button class="side-btn" id="prevBtn" title="Anterior" disabled>‹</button>
+        <span class="side-info" id="navInfo"></span>
+        <button class="side-btn" id="nextBtn" title="Próxima" disabled>›</button>
       </div>
+      <hr class="side-sep">
+      <button class="side-play-btn" id="scrollToggle">▶ Rolar</button>
+      <div class="side-row">
+        <button class="side-sm" id="speedDown" title="Diminuir">−</button>
+        <span class="side-lbl" id="speedLabel">Vel 3</span>
+        <button class="side-sm" id="speedUp" title="Aumentar">+</button>
+      </div>
+      <hr class="side-sep">
+      <div class="side-row">
+        <button class="side-sm" id="transposeDown" title="♭ Baixar">♭</button>
+        <span class="side-accent" id="transposeLabel">0</span>
+        <button class="side-sm" id="transposeUp" title="♯ Subir">♯</button>
+      </div>
+      <button class="side-reset" id="transposeReset" style="display:none">↺ orig.</button>
     </div>
-    <div class="ctrl-transpose-row">
-      <span class="ctrl-transpose-label">Tom</span>
-      <button class="ctrl-speed-btn" id="transposeDown" title="Meio tom abaixo">♭</button>
-      <span class="ctrl-transpose-val" id="transposeLabel">0</span>
-      <button class="ctrl-speed-btn" id="transposeUp" title="Meio tom acima">♯</button>
-      <button class="ctrl-nav-btn" id="transposeReset" title="Voltar ao tom original" style="display:none;margin-left:auto;font-size:.72rem;">↺ orig.</button>
-    </div>
+    <button class="side-tab" id="sidePanelToggle" title="Ocultar controles">›</button>
   </div>
 </div>
 
@@ -266,9 +274,10 @@ const BRANCH     = 'main';
 const API        = `https://api.github.com/repos/${REPO}/contents`;
 const RAW        = `https://raw.githubusercontent.com/${REPO}/${BRANCH}`;
 const TREE_API   = `https://api.github.com/repos/${REPO}/git/trees/${BRANCH}?recursive=1`;
-const RECENT_KEY = 'cifras_v3_recent';
-const SETLIST_KEY = 'cifras_setlist_v1';
-const THEME_KEY  = 'cifras_theme';
+const RECENT_KEY   = 'cifras_v3_recent';
+const SETLIST_KEY  = 'cifras_setlist_v1';
+const THEME_KEY    = 'cifras_theme';
+const SONG_CFG_KEY = 'cifras_song_cfg_v1';
 const MAX_RECENT = 6;
 const PDFJS      = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
 
@@ -316,6 +325,18 @@ function addRecent(entry) {
   list.unshift(entry);
   if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+}
+
+/* ── Per-song config (transpose + speed) ────────────────────────────────── */
+function getSongCfg(url) {
+  try { return JSON.parse(localStorage.getItem(SONG_CFG_KEY) || '{}')[url] || {}; } catch { return {}; }
+}
+function saveSongCfg(url, patch) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SONG_CFG_KEY) || '{}');
+    all[url] = { ...(all[url] || {}), ...patch };
+    localStorage.setItem(SONG_CFG_KEY, JSON.stringify(all));
+  } catch {}
 }
 
 /* ── Setlist ─────────────────────────────────────────────────────────────── */
@@ -496,6 +517,7 @@ let catalog  = null;
 let viewerPlaylist = [];
 let viewerIdx      = -1;
 let globalMatches  = [];
+let currentEntry   = null;
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function esc(str) {
@@ -768,7 +790,7 @@ let speedIdx=2, rafId=null;
 
 function updateSpeedLabel() {
   const el=document.getElementById('speedLabel');
-  if(el) el.textContent=`Velocidade ${speedIdx+1} / ${SPEEDS.length}`;
+  if(el) el.textContent=`Vel ${speedIdx+1}`;
 }
 function stopScroll() {
   if(rafId){cancelAnimationFrame(rafId);rafId=null;}
@@ -792,8 +814,14 @@ function startScroll() {
 function toggleScroll(){if(rafId)stopScroll();else startScroll();}
 
 document.getElementById('scrollToggle').addEventListener('click', toggleScroll);
-document.getElementById('speedDown').addEventListener('click', ()=>{ speedIdx=Math.max(0,speedIdx-1); updateSpeedLabel(); });
-document.getElementById('speedUp').addEventListener('click',   ()=>{ speedIdx=Math.min(SPEEDS.length-1,speedIdx+1); updateSpeedLabel(); });
+document.getElementById('speedDown').addEventListener('click', ()=>{
+  speedIdx=Math.max(0,speedIdx-1); updateSpeedLabel();
+  if(currentEntry) saveSongCfg(currentEntry.url,{speed:speedIdx});
+});
+document.getElementById('speedUp').addEventListener('click', ()=>{
+  speedIdx=Math.min(SPEEDS.length-1,speedIdx+1); updateSpeedLabel();
+  if(currentEntry) saveSongCfg(currentEntry.url,{speed:speedIdx});
+});
 
 /* ── Viewer nav buttons ──────────────────────────────────────────────────── */
 function updateNavButtons() {
@@ -813,6 +841,14 @@ document.getElementById('nextBtn').addEventListener('click', ()=>{
   if(viewerIdx<viewerPlaylist.length-1){ viewerIdx++; loadContent(viewerPlaylist[viewerIdx]); updateNavButtons(); }
 });
 
+document.getElementById('sidePanelToggle').addEventListener('click', () => {
+  const panel = document.getElementById('viewerControls');
+  const tab   = document.getElementById('sidePanelToggle');
+  const collapsed = panel.classList.toggle('collapsed');
+  tab.textContent = collapsed ? '‹' : '›';
+  tab.title = collapsed ? 'Mostrar controles' : 'Ocultar controles';
+});
+
 /* ── Viewer open/close ───────────────────────────────────────────────────── */
 function openViewer(entry, playlist, idx) {
   viewerPlaylist = playlist || [entry];
@@ -826,13 +862,25 @@ function openViewer(entry, playlist, idx) {
 }
 
 async function loadContent(entry) {
+  currentEntry    = entry;
   addRecent(entry);
-  // Reset transpose state for new song
+  // Reset side panel to expanded state
+  const sidePanel = document.getElementById('viewerControls');
+  const sideTab   = document.getElementById('sidePanelToggle');
+  if (sidePanel) { sidePanel.classList.remove('collapsed'); }
+  if (sideTab)   { sideTab.textContent = '›'; sideTab.title = 'Ocultar controles'; }
+  // Reset state for new song
   transposeState  = 0;
   currentPdfDoc   = null;
   cachedCanvases  = [];
   extractedPages  = null;
   updateTransposeLabel();
+  // Restore saved speed for this song
+  const savedCfg = getSongCfg(entry.url);
+  if (savedCfg.speed !== undefined) {
+    speedIdx = Math.max(0, Math.min(SPEEDS.length - 1, savedCfg.speed));
+    updateSpeedLabel();
+  }
 
   const body    = document.getElementById('viewerBody');
   const loading = document.getElementById('viewerLoading');
@@ -870,6 +918,8 @@ async function loadContent(entry) {
     controls.style.display='';
     updateSpeedLabel();
     updateNavButtons();
+    // Restore saved transpose (triggers text extraction if needed)
+    if (savedCfg.transpose) await applyTranspose(savedCfg.transpose);
   } catch {
     loading.innerHTML='<div class="empty-icon">⚠️</div><div>Erro ao carregar o PDF.<br>Verifique sua conexão.</div>';
   }
@@ -1079,6 +1129,7 @@ function updateTransposeLabel() {
 async function applyTranspose(delta) {
   transposeState += delta;
   updateTransposeLabel();
+  if (currentEntry) saveSongCfg(currentEntry.url, { transpose: transposeState });
   if (!currentPdfDoc) return;
 
   const canvas  = document.getElementById('viewerCanvas');
@@ -1113,6 +1164,7 @@ document.getElementById('transposeUp').addEventListener('click',   () => applyTr
 document.getElementById('transposeReset').addEventListener('click', () => {
   transposeState = 0;
   updateTransposeLabel();
+  if (currentEntry) saveSongCfg(currentEntry.url, { transpose: 0 });
   const canvas = document.getElementById('viewerCanvas');
   canvas.innerHTML = '';
   cachedCanvases.forEach(c => canvas.appendChild(c));
