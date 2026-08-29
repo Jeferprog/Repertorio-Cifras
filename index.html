@@ -266,9 +266,10 @@ const BRANCH     = 'main';
 const API        = `https://api.github.com/repos/${REPO}/contents`;
 const RAW        = `https://raw.githubusercontent.com/${REPO}/${BRANCH}`;
 const TREE_API   = `https://api.github.com/repos/${REPO}/git/trees/${BRANCH}?recursive=1`;
-const RECENT_KEY = 'cifras_v3_recent';
-const SETLIST_KEY = 'cifras_setlist_v1';
-const THEME_KEY  = 'cifras_theme';
+const RECENT_KEY   = 'cifras_v3_recent';
+const SETLIST_KEY  = 'cifras_setlist_v1';
+const THEME_KEY    = 'cifras_theme';
+const SONG_CFG_KEY = 'cifras_song_cfg_v1';
 const MAX_RECENT = 6;
 const PDFJS      = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
 
@@ -316,6 +317,18 @@ function addRecent(entry) {
   list.unshift(entry);
   if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+}
+
+/* ── Per-song config (transpose + speed) ────────────────────────────────── */
+function getSongCfg(url) {
+  try { return JSON.parse(localStorage.getItem(SONG_CFG_KEY) || '{}')[url] || {}; } catch { return {}; }
+}
+function saveSongCfg(url, patch) {
+  try {
+    const all = JSON.parse(localStorage.getItem(SONG_CFG_KEY) || '{}');
+    all[url] = { ...(all[url] || {}), ...patch };
+    localStorage.setItem(SONG_CFG_KEY, JSON.stringify(all));
+  } catch {}
 }
 
 /* ── Setlist ─────────────────────────────────────────────────────────────── */
@@ -496,6 +509,7 @@ let catalog  = null;
 let viewerPlaylist = [];
 let viewerIdx      = -1;
 let globalMatches  = [];
+let currentEntry   = null;
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function esc(str) {
@@ -792,8 +806,14 @@ function startScroll() {
 function toggleScroll(){if(rafId)stopScroll();else startScroll();}
 
 document.getElementById('scrollToggle').addEventListener('click', toggleScroll);
-document.getElementById('speedDown').addEventListener('click', ()=>{ speedIdx=Math.max(0,speedIdx-1); updateSpeedLabel(); });
-document.getElementById('speedUp').addEventListener('click',   ()=>{ speedIdx=Math.min(SPEEDS.length-1,speedIdx+1); updateSpeedLabel(); });
+document.getElementById('speedDown').addEventListener('click', ()=>{
+  speedIdx=Math.max(0,speedIdx-1); updateSpeedLabel();
+  if(currentEntry) saveSongCfg(currentEntry.url,{speed:speedIdx});
+});
+document.getElementById('speedUp').addEventListener('click', ()=>{
+  speedIdx=Math.min(SPEEDS.length-1,speedIdx+1); updateSpeedLabel();
+  if(currentEntry) saveSongCfg(currentEntry.url,{speed:speedIdx});
+});
 
 /* ── Viewer nav buttons ──────────────────────────────────────────────────── */
 function updateNavButtons() {
@@ -826,13 +846,20 @@ function openViewer(entry, playlist, idx) {
 }
 
 async function loadContent(entry) {
+  currentEntry    = entry;
   addRecent(entry);
-  // Reset transpose state for new song
+  // Reset state for new song
   transposeState  = 0;
   currentPdfDoc   = null;
   cachedCanvases  = [];
   extractedPages  = null;
   updateTransposeLabel();
+  // Restore saved speed for this song
+  const savedCfg = getSongCfg(entry.url);
+  if (savedCfg.speed !== undefined) {
+    speedIdx = Math.max(0, Math.min(SPEEDS.length - 1, savedCfg.speed));
+    updateSpeedLabel();
+  }
 
   const body    = document.getElementById('viewerBody');
   const loading = document.getElementById('viewerLoading');
@@ -870,6 +897,8 @@ async function loadContent(entry) {
     controls.style.display='';
     updateSpeedLabel();
     updateNavButtons();
+    // Restore saved transpose (triggers text extraction if needed)
+    if (savedCfg.transpose) await applyTranspose(savedCfg.transpose);
   } catch {
     loading.innerHTML='<div class="empty-icon">⚠️</div><div>Erro ao carregar o PDF.<br>Verifique sua conexão.</div>';
   }
@@ -1079,6 +1108,7 @@ function updateTransposeLabel() {
 async function applyTranspose(delta) {
   transposeState += delta;
   updateTransposeLabel();
+  if (currentEntry) saveSongCfg(currentEntry.url, { transpose: transposeState });
   if (!currentPdfDoc) return;
 
   const canvas  = document.getElementById('viewerCanvas');
@@ -1113,6 +1143,7 @@ document.getElementById('transposeUp').addEventListener('click',   () => applyTr
 document.getElementById('transposeReset').addEventListener('click', () => {
   transposeState = 0;
   updateTransposeLabel();
+  if (currentEntry) saveSongCfg(currentEntry.url, { transpose: 0 });
   const canvas = document.getElementById('viewerCanvas');
   canvas.innerHTML = '';
   cachedCanvases.forEach(c => canvas.appendChild(c));
